@@ -1,13 +1,13 @@
 {
   "name": "rivendell-ai-dj",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI DJ bridge for Rivendell Radio Automation — first AI integration for any professional RAS",
   "type": "module",
-  "main": "src/cli.js",
   "scripts": {
     "start": "node src/cli.js",
     "dev": "node --watch src/cli.js",
     "demo": "DEMO_MODE=true node src/cli.js",
+    "demo:groq": "DEMO_MODE=true OPENAI_MODEL=z-ai/glm-4.7-flash OPENAI_MODEL_FALLBACK=nvidia/nemotron-3-ultra-550b-a55b:free node src/cli.js",
     "test": "node scripts/test.js",
     "test-connection": "node scripts/test-connection.js"
   },
