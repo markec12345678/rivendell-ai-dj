@@ -1,0 +1,19 @@
+[Unit]
+Description=Rivendell AI DJ Bridge
+After=network.target rivendell.service
+
+[Service]
+Type=simple
+User=rivendell
+Group=rivendell
+WorkingDirectory=/opt/rivendell-ai-dj
+EnvironmentFile=/opt/rivendell-ai-dj/.env
+ExecStart=/usr/bin/node src/cli.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rivendell-ai-dj
+
+[Install]
+WantedBy=multi-user.target
