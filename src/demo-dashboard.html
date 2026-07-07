@@ -89,19 +89,21 @@
 <main>
   <div>
     <div class="now-playing">
-      <div class="np-label">Now Playing (simulated)</div>
+      <div class="np-label">Now Playing (simulated) — <span id="np-persona">—</span></div>
       <div class="np-title" id="np-title">Loading…</div>
       <div class="np-artist" id="np-artist"></div>
+      <div class="np-meta" id="np-meta" style="font-size:12px;color:var(--fg-muted);margin-bottom:12px;"></div>
       <div class="np-next">Up next: <strong id="np-next">—</strong></div>
     </div>
 
     <div class="latest-intro">
-      <h3>Latest AI DJ Intro</h3>
+      <h3>Latest AI DJ Intro <span id="intro-persona-badge" class="model-badge primary" style="display:none;margin-left:8px;"></span></h3>
       <div class="intro-text empty" id="intro-text">Waiting for first transition…</div>
       <div class="intro-meta">
         <span id="intro-model" class="model-badge" style="display:none"></span>
         <span id="intro-time"></span>
       </div>
+      <div id="memory-indicator" style="margin-top:8px;font-size:11px;color:var(--fg-muted);"></div>
     </div>
 
     <div class="intro-history">
@@ -117,10 +119,11 @@
       <div class="stat-row"><span class="label">Transitions</span><span class="value" id="s-transitions">0</span></div>
       <div class="stat-row"><span class="label">Intros generated</span><span class="value" id="s-intros">0</span></div>
       <div class="stat-row"><span class="label">Static fallback</span><span class="value" id="s-static">0</span></div>
+      <div class="stat-row"><span class="label">Persona rotations</span><span class="value" id="s-rotations">0</span></div>
       <div class="stat-row"><span class="label">Primary (GLM-5.2)</span><span class="value primary" id="s-primary">0/0</span></div>
       <div class="stat-row"><span class="label">Secondary (Nemotron)</span><span class="value fallback" id="s-fallback">0/0</span></div>
       <div class="stat-row"><span class="label">Groq (Llama 3.3)</span><span class="value" id="s-groq">—</span></div>
-      <div class="stat-row"><span class="label">Persona</span><span class="value" id="s-persona">—</span></div>
+      <div class="stat-row"><span class="label">Current persona</span><span class="value" id="s-persona">—</span></div>
     </div>
 
     <div class="controls">
@@ -151,6 +154,13 @@ function updateState(state) {
   if (state.current) {
     $('np-title').textContent = state.current.title;
     $('np-artist').textContent = state.current.artist + ` · ${state.current.duration}s`;
+    // Track emotion metadata
+    const meta = [];
+    if (state.current.bpm) meta.push(`BPM ${state.current.bpm}`);
+    if (state.current.energy) meta.push(`energy: ${state.current.energy}`);
+    if (state.current.mood) meta.push(`mood: ${state.current.mood}`);
+    if (state.current.genre) meta.push(state.current.genre);
+    $('np-meta').textContent = meta.join(' · ');
   }
   if (state.next) {
     $('np-next').textContent = `${state.next.title} by ${state.next.artist}`;
@@ -158,9 +168,14 @@ function updateState(state) {
   if (state.intros && state.intros.length > 0) {
     showIntro(state.intros[0]);
     showHistory(state.intros);
+    // Memory indicator
+    $('memory-indicator').textContent = `🧠 DJ remembers last ${Math.min(state.intros.length, 5)} intro${state.intros.length > 1 ? 's' : ''}`;
   }
   if (state.stats) updateStats(state.stats);
-  if (state.persona) $('s-persona').textContent = state.persona.name;
+  if (state.persona) {
+    $('np-persona').textContent = state.persona.name;
+    $('s-persona').textContent = state.persona.name;
+  }
 }
 
 function showIntro(intro) {
@@ -171,13 +186,19 @@ function showIntro(intro) {
   // Provider name: primary=GLM-5.2, secondary=Nemotron, groq=Llama, static=text
   let label = intro.model || 'unknown';
   let cls = 'fallback';
-  if (intro.model === 'primary') { label = 'GLM-5.2 (primary)'; cls = 'primary'; }
-  else if (intro.model === 'secondary') { label = 'Nemotron (fallback)'; cls = 'fallback'; }
-  else if (intro.model === 'groq') { label = 'Groq Llama 3.3'; cls = 'primary'; }
+  if (intro.model === 'primary') { label = 'GLM-5.2'; cls = 'primary'; }
+  else if (intro.model === 'secondary') { label = 'Nemotron'; cls = 'fallback'; }
+  else if (intro.model === 'groq') { label = 'Groq Llama'; cls = 'primary'; }
   else if (intro.model === 'static') { label = 'static fallback'; cls = 'fallback'; }
   badge.textContent = label;
   badge.className = 'model-badge ' + cls;
   $('intro-time').textContent = new Date(intro.ts).toLocaleTimeString();
+
+  // Persona badge
+  const personaBadge = $('intro-persona-badge');
+  personaBadge.style.display = 'inline-block';
+  personaBadge.textContent = intro.persona || '—';
+
   $('speak-btn').disabled = false;
 }
 
@@ -189,6 +210,7 @@ function showHistory(intros) {
       <div class="text">"${escapeHtml(i.text)}"</div>
       <div class="meta">
         <span>${new Date(i.ts).toLocaleTimeString()}</span>
+        <span>${escapeHtml(i.persona || '')}</span>
         <span>${escapeHtml(i.model)}</span>
       </div>
     </div>
@@ -200,6 +222,7 @@ function updateStats(s) {
   $('s-transitions').textContent = s.transitions;
   $('s-intros').textContent = s.introsGenerated;
   $('s-static').textContent = s.staticFallbackUsed || 0;
+  $('s-rotations').textContent = s.personaRotations || 0;
   const p = s.providers || {};
   $('s-primary').textContent = `${p.primary?.success || 0}/${p.primary?.failure || 0}`;
   $('s-fallback').textContent = `${p.secondary?.success || 0}/${p.secondary?.failure || 0}`;
@@ -217,21 +240,24 @@ function escapeHtml(s) {
 }
 
 // Browser TTS (Web Speech API — free, built-in)
-function speak(text) {
+// Uses persona voice settings if available
+let currentPersona = { voice: { rate: 0.95, pitch: 0.9, lang: 'en-GB' } };
+
+function speak(text, personaOverride = null) {
   if (!('speechSynthesis' in window)) {
     alert('Browser does not support speech synthesis');
     return;
   }
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 0.95;
-  utter.pitch = 0.9;
-  // Try to find a good English voice
+  const voice = (personaOverride || currentPersona)?.voice || {};
+  utter.rate = voice.rate || 0.95;
+  utter.pitch = voice.pitch || 0.9;
+  utter.lang = voice.lang || 'en-GB';
   const voices = window.speechSynthesis.getVoices();
-  const enVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('daniel')) ||
-                  voices.find(v => v.lang.startsWith('en-GB')) ||
-                  voices.find(v => v.lang.startsWith('en'));
-  if (enVoice) utter.voice = enVoice;
+  const match = voices.find(v => v.lang === utter.lang) ||
+                voices.find(v => v.lang.startsWith(utter.lang.split('-')[0]));
+  if (match) utter.voice = match;
   window.speechSynthesis.speak(utter);
 }
 
@@ -244,14 +270,28 @@ function connect() {
     const msg = JSON.parse(e.data);
     if (msg.type === 'welcome') {
       updateState(msg);
+      if (msg.persona) currentPersona = msg.persona;
     } else if (msg.type === 'transition') {
       $('np-title').textContent = msg.current.title;
       $('np-artist').textContent = msg.current.artist + ` · ${msg.current.duration}s`;
+      // Update track metadata
+      const meta = [];
+      if (msg.current.bpm) meta.push(`BPM ${msg.current.bpm}`);
+      if (msg.current.energy) meta.push(`energy: ${msg.current.energy}`);
+      if (msg.current.mood) meta.push(`mood: ${msg.current.mood}`);
+      if (msg.current.genre) meta.push(msg.current.genre);
+      $('np-meta').textContent = meta.join(' · ');
       showIntro(msg.intro);
-      // Fetch full state to update next + history
+      // Update persona
+      if (msg.persona) {
+        currentPersona = msg.persona;
+        $('np-persona').textContent = msg.persona.name;
+        $('s-persona').textContent = msg.persona.name;
+      }
+      // Fetch full state to update next + history + stats
       fetch('/api/state').then(r => r.json()).then(s => updateState(s));
-      // Auto-speak
-      if (autoSpeak) speak(msg.intro.text);
+      // Auto-speak with persona voice
+      if (autoSpeak) speak(msg.intro.text, msg.persona);
     }
   };
   ws.onclose = () => { console.log('[ws] closed, reconnecting in 3s'); setTimeout(connect, 3000); };

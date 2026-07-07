@@ -18,21 +18,21 @@ import { AIDJEngine } from './ai-dj.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DEMO_LIBRARY = [
-  { number: 1001, title: 'Bohemian Rhapsody', artist: 'Queen', duration: 354 },
-  { number: 1002, title: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: 482 },
-  { number: 1003, title: 'Hotel California', artist: 'Eagles', duration: 391 },
-  { number: 1004, title: 'Sweet Child O Mine', artist: "Guns N' Roses", duration: 356 },
-  { number: 1005, title: 'Smells Like Teen Spirit', artist: 'Nirvana', duration: 301 },
-  { number: 1006, title: 'Imagine', artist: 'John Lennon', duration: 183 },
-  { number: 1007, title: 'Yesterday', artist: 'The Beatles', duration: 125 },
-  { number: 1008, title: 'Hey Jude', artist: 'The Beatles', duration: 431 },
-  { number: 1009, title: 'Like a Rolling Stone', artist: 'Bob Dylan', duration: 371 },
-  { number: 1010, title: 'What a Wonderful World', artist: 'Louis Armstrong', duration: 137 },
-  { number: 1011, title: 'Cosmic Drift', artist: 'Generative Archives', duration: 60 },
-  { number: 1012, title: 'Neon Memory', artist: 'Generative Archives', duration: 60 },
-  { number: 1013, title: 'Late Night Static', artist: 'Generative Archives', duration: 60 },
-  { number: 1014, title: 'Deep Current', artist: 'Generative Archives', duration: 60 },
-  { number: 1015, title: 'Morning Static', artist: 'Generative Archives', duration: 60 },
+  { number: 1001, title: 'Bohemian Rhapsody', artist: 'Queen', duration: 354, bpm: 72, energy: 'medium', mood: 'theatrical', genre: 'rock' },
+  { number: 1002, title: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: 482, bpm: 82, energy: 'low', mood: 'epic', genre: 'rock' },
+  { number: 1003, title: 'Hotel California', artist: 'Eagles', duration: 391, bpm: 75, energy: 'medium', mood: 'mysterious', genre: 'rock' },
+  { number: 1004, title: 'Sweet Child O Mine', artist: "Guns N' Roses", duration: 356, bpm: 125, energy: 'high', mood: 'energetic', genre: 'rock' },
+  { number: 1005, title: 'Smells Like Teen Spirit', artist: 'Nirvana', duration: 301, bpm: 117, energy: 'high', mood: 'rebellious', genre: 'grunge' },
+  { number: 1006, title: 'Imagine', artist: 'John Lennon', duration: 183, bpm: 60, energy: 'low', mood: 'peaceful', genre: 'ballad' },
+  { number: 1007, title: 'Yesterday', artist: 'The Beatles', duration: 125, bpm: 65, energy: 'low', mood: 'nostalgic', genre: 'ballad' },
+  { number: 1008, title: 'Hey Jude', artist: 'The Beatles', duration: 431, bpm: 70, energy: 'medium', mood: 'uplifting', genre: 'rock' },
+  { number: 1009, title: 'Like a Rolling Stone', artist: 'Bob Dylan', duration: 371, bpm: 110, energy: 'medium', mood: 'defiant', genre: 'folk-rock' },
+  { number: 1010, title: 'What a Wonderful World', artist: 'Louis Armstrong', duration: 137, bpm: 60, energy: 'low', mood: 'warm', genre: 'jazz' },
+  { number: 1011, title: 'Cosmic Drift', artist: 'Generative Archives', duration: 60, bpm: 90, energy: 'low', mood: 'ambient', genre: 'ambient' },
+  { number: 1012, title: 'Neon Memory', artist: 'Generative Archives', duration: 60, bpm: 110, energy: 'medium', mood: 'synthwave', genre: 'electronic' },
+  { number: 1013, title: 'Late Night Static', artist: 'Generative Archives', duration: 60, bpm: 80, energy: 'low', mood: 'lo-fi', genre: 'lo-fi' },
+  { number: 1014, title: 'Deep Current', artist: 'Generative Archives', duration: 60, bpm: 70, energy: 'low', mood: 'deep', genre: 'ambient' },
+  { number: 1015, title: 'Morning Static', artist: 'Generative Archives', duration: 60, bpm: 120, energy: 'medium', mood: 'bright', genre: 'electronic' },
 ];
 
 export class DemoBridge {
@@ -108,7 +108,7 @@ export class DemoBridge {
 
         // Generate AI DJ intro
         try {
-          const { text, model } = await this.dj.generateLink({
+          const { text, model, persona } = await this.dj.generateLink({
             currentTrack: justPlayed,
             nextTrack: this.currentTrack,
             mood: 'neutral',
@@ -125,17 +125,29 @@ export class DemoBridge {
             id: Math.random().toString(36).slice(2, 10),
             text,
             model,
+            persona: persona,  // which DJ persona served this intro
             fromTrack: justPlayed.title,
             toTrack: this.currentTrack.title,
+            fromBpm: justPlayed.bpm,
+            toBpm: this.currentTrack.bpm,
+            fromMood: justPlayed.mood,
+            toMood: this.currentTrack.mood,
             ts: Date.now(),
           };
           this.intros.unshift(intro);
           this.intros = this.intros.slice(0, 20);
 
-          console.log(`[dj] (${model}) intro: "${text}"`);
+          console.log(`[dj] (${model}, ${persona}) intro: "${text}"`);
 
           // Broadcast to all WS clients
-          this.broadcast({ type: 'transition', current: this.currentTrack, intro, stats: this.getStats() });
+          this.broadcast({
+            type: 'transition',
+            current: this.currentTrack,
+            next: this.nextTrack,
+            intro,
+            stats: this.getStats(),
+            persona: this.dj.getPersona(),
+          });
         } catch (err) {
           console.error('[dj] intro generation failed:', err.message);
         }
@@ -209,7 +221,7 @@ export class DemoBridge {
         next: this.nextTrack,
         intros: this.intros,
         stats: this.getStats(),
-        persona: this.dj.persona,
+        persona: this.dj.getPersona(),
       }));
       ws.on('close', () => this.listeners.delete(ws));
     });
