@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rivendell AI DJ — Demo</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-elev: #131820;
+    --bg-card: #1a2028;
+    --fg: #e8eaed;
+    --fg-muted: #8b95a5;
+    --accent: #2b6886;
+    --accent-bright: #3d8fb0;
+    --primary: #4a9eff;
+    --fallback: #f59e0b;
+    --success: #47895d;
+    --danger: #c4455a;
+    --border: #2a3441;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; padding: 24px; }
+
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .logo { font-size: 20px; font-weight: 800; letter-spacing: 1px; }
+  .logo .sub { color: var(--accent-bright); font-weight: 400; font-size: 14px; margin-left: 8px; }
+  .status { display: flex; gap: 20px; font-size: 12px; color: var(--fg-muted); }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  main { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 380px; gap: 24px; }
+
+  .now-playing { background: linear-gradient(135deg, var(--bg-card), var(--bg-elev)); border: 1px solid var(--border); border-radius: 16px; padding: 28px; position: relative; overflow: hidden; }
+  .now-playing::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at top right, rgba(43, 104, 134, 0.15), transparent 60%); pointer-events: none; }
+  .np-label { font-size: 11px; letter-spacing: 3px; color: var(--fg-muted); text-transform: uppercase; margin-bottom: 12px; }
+  .np-title { font-size: 28px; font-weight: 700; margin-bottom: 6px; line-height: 1.2; }
+  .np-artist { font-size: 15px; color: var(--fg-muted); margin-bottom: 20px; }
+  .np-next { font-size: 12px; color: var(--fg-muted); padding-top: 16px; border-top: 1px solid var(--border); }
+  .np-next strong { color: var(--fg); }
+
+  .latest-intro { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
+  .latest-intro h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--fg-muted); margin-bottom: 12px; }
+  .intro-text { font-size: 16px; line-height: 1.6; font-style: italic; margin-bottom: 12px; min-height: 50px; }
+  .intro-text.empty { color: var(--fg-muted); font-style: normal; }
+  .intro-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--fg-muted); }
+  .model-badge { padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .model-badge.primary { background: rgba(74, 158, 255, 0.15); color: var(--primary); }
+  .model-badge.fallback { background: rgba(245, 158, 11, 0.15); color: var(--fallback); }
+
+  .intro-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
+  .intro-history h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--fg-muted); margin-bottom: 12px; }
+  .history-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .history-item:last-child { border-bottom: none; }
+  .history-item .from-to { color: var(--fg-muted); font-size: 11px; margin-bottom: 4px; }
+  .history-item .text { font-style: italic; }
+  .history-item .meta { font-size: 10px; color: var(--fg-muted); margin-top: 4px; display: flex; gap: 8px; }
+
+  .stats-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .stats-panel h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--fg-muted); margin-bottom: 16px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: var(--fg-muted); }
+  .stat-row .value { font-weight: 600; }
+  .stat-row .value.primary { color: var(--primary); }
+  .stat-row .value.fallback { color: var(--fallback); }
+
+  .controls { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
+  .controls h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--fg-muted); margin-bottom: 12px; }
+  .btn { background: var(--accent); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; width: 100%; }
+  .btn:hover { background: var(--accent-bright); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .tts-toggle { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--fg-muted); }
+  .tts-toggle input { accent-color: var(--accent); }
+
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">RIVENDELL AI DJ <span class="sub">demo mode</span></div>
+  <div class="status">
+    <span><span class="dot"></span><span id="uptime">0s</span></span>
+    <span id="listeners">0 listeners</span>
+  </div>
+</header>
+
+<main>
+  <div>
+    <div class="now-playing">
+      <div class="np-label">Now Playing (simulated)</div>
+      <div class="np-title" id="np-title">Loading…</div>
+      <div class="np-artist" id="np-artist"></div>
+      <div class="np-next">Up next: <strong id="np-next">—</strong></div>
+    </div>
+
+    <div class="latest-intro">
+      <h3>Latest AI DJ Intro</h3>
+      <div class="intro-text empty" id="intro-text">Waiting for first transition…</div>
+      <div class="intro-meta">
+        <span id="intro-model" class="model-badge" style="display:none"></span>
+        <span id="intro-time"></span>
+      </div>
+    </div>
+
+    <div class="intro-history">
+      <h3>Recent Intros (last 20)</h3>
+      <div id="history-list"><div style="color: var(--fg-muted); font-size: 13px;">No intros yet</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="stats-panel">
+      <h3>Statistics</h3>
+      <div class="stat-row"><span class="label">Uptime</span><span class="value" id="s-uptime">—</span></div>
+      <div class="stat-row"><span class="label">Transitions</span><span class="value" id="s-transitions">0</span></div>
+      <div class="stat-row"><span class="label">Intros generated</span><span class="value" id="s-intros">0</span></div>
+      <div class="stat-row"><span class="label">Static fallback</span><span class="value" id="s-static">0</span></div>
+      <div class="stat-row"><span class="label">Primary (GLM-5.2)</span><span class="value primary" id="s-primary">0/0</span></div>
+      <div class="stat-row"><span class="label">Secondary (Nemotron)</span><span class="value fallback" id="s-fallback">0/0</span></div>
+      <div class="stat-row"><span class="label">Groq (Llama 3.3)</span><span class="value" id="s-groq">—</span></div>
+      <div class="stat-row"><span class="label">Persona</span><span class="value" id="s-persona">—</span></div>
+    </div>
+
+    <div class="controls">
+      <h3>Controls</h3>
+      <button class="btn" id="speak-btn" disabled>🔊 Speak Latest Intro</button>
+      <div class="tts-toggle">
+        <input type="checkbox" id="auto-speak" checked>
+        <label for="auto-speak">Auto-speak new intros (browser TTS)</label>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let autoSpeak = true;
+let ws = null;
+
+function fmt(s) {
+  s = Math.floor(s || 0);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function updateState(state) {
+  if (state.current) {
+    $('np-title').textContent = state.current.title;
+    $('np-artist').textContent = state.current.artist + ` · ${state.current.duration}s`;
+  }
+  if (state.next) {
+    $('np-next').textContent = `${state.next.title} by ${state.next.artist}`;
+  }
+  if (state.intros && state.intros.length > 0) {
+    showIntro(state.intros[0]);
+    showHistory(state.intros);
+  }
+  if (state.stats) updateStats(state.stats);
+  if (state.persona) $('s-persona').textContent = state.persona.name;
+}
+
+function showIntro(intro) {
+  $('intro-text').textContent = `"${intro.text}"`;
+  $('intro-text').classList.remove('empty');
+  const badge = $('intro-model');
+  badge.style.display = 'inline-block';
+  // Provider name: primary=GLM-5.2, secondary=Nemotron, groq=Llama, static=text
+  let label = intro.model || 'unknown';
+  let cls = 'fallback';
+  if (intro.model === 'primary') { label = 'GLM-5.2 (primary)'; cls = 'primary'; }
+  else if (intro.model === 'secondary') { label = 'Nemotron (fallback)'; cls = 'fallback'; }
+  else if (intro.model === 'groq') { label = 'Groq Llama 3.3'; cls = 'primary'; }
+  else if (intro.model === 'static') { label = 'static fallback'; cls = 'fallback'; }
+  badge.textContent = label;
+  badge.className = 'model-badge ' + cls;
+  $('intro-time').textContent = new Date(intro.ts).toLocaleTimeString();
+  $('speak-btn').disabled = false;
+}
+
+function showHistory(intros) {
+  if (!intros || intros.length === 0) return;
+  $('history-list').innerHTML = intros.slice(0, 10).map(i => `
+    <div class="history-item">
+      <div class="from-to">${escapeHtml(i.fromTrack)} → ${escapeHtml(i.toTrack)}</div>
+      <div class="text">"${escapeHtml(i.text)}"</div>
+      <div class="meta">
+        <span>${new Date(i.ts).toLocaleTimeString()}</span>
+        <span>${escapeHtml(i.model)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateStats(s) {
+  $('s-uptime').textContent = fmt(s.uptime);
+  $('s-transitions').textContent = s.transitions;
+  $('s-intros').textContent = s.introsGenerated;
+  $('s-static').textContent = s.staticFallbackUsed || 0;
+  const p = s.providers || {};
+  $('s-primary').textContent = `${p.primary?.success || 0}/${p.primary?.failure || 0}`;
+  $('s-fallback').textContent = `${p.secondary?.success || 0}/${p.secondary?.failure || 0}`;
+  if (p.groq) {
+    $('s-groq').textContent = `${p.groq.success}/${p.groq.failure}`;
+  } else {
+    $('s-groq').textContent = '(not configured)';
+  }
+  $('uptime').textContent = fmt(s.uptime);
+  $('listeners').textContent = `${s.listeners || 0} listeners`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
+// Browser TTS (Web Speech API — free, built-in)
+function speak(text) {
+  if (!('speechSynthesis' in window)) {
+    alert('Browser does not support speech synthesis');
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 0.95;
+  utter.pitch = 0.9;
+  // Try to find a good English voice
+  const voices = window.speechSynthesis.getVoices();
+  const enVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('daniel')) ||
+                  voices.find(v => v.lang.startsWith('en-GB')) ||
+                  voices.find(v => v.lang.startsWith('en'));
+  if (enVoice) utter.voice = enVoice;
+  window.speechSynthesis.speak(utter);
+}
+
+// WebSocket connection
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  ws.onopen = () => console.log('[ws] connected');
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'welcome') {
+      updateState(msg);
+    } else if (msg.type === 'transition') {
+      $('np-title').textContent = msg.current.title;
+      $('np-artist').textContent = msg.current.artist + ` · ${msg.current.duration}s`;
+      showIntro(msg.intro);
+      // Fetch full state to update next + history
+      fetch('/api/state').then(r => r.json()).then(s => updateState(s));
+      // Auto-speak
+      if (autoSpeak) speak(msg.intro.text);
+    }
+  };
+  ws.onclose = () => { console.log('[ws] closed, reconnecting in 3s'); setTimeout(connect, 3000); };
+}
+
+$('speak-btn').addEventListener('click', () => {
+  const text = $('intro-text').textContent.replace(/^"|"$/g, '');
+  if (text && !text.startsWith('Waiting')) speak(text);
+});
+
+$('auto-speak').addEventListener('change', (e) => {
+  autoSpeak = e.target.checked;
+});
+
+// Init
+connect();
+
+// Periodic stats refresh (for uptime)
+setInterval(() => {
+  fetch('/api/stats').then(r => r.json()).then(s => {
+    $('uptime').textContent = fmt(s.uptime);
+    $('listeners').textContent = `${s.listeners || 0} listeners`;
+  }).catch(() => {});
+}, 5000);
+
+// Load voices (Chrome needs this)
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => {};
+}
+</script>
+</body>
+</html>

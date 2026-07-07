@@ -1,19 +1,19 @@
 {
   "name": "rivendell-ai-dj",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI DJ bridge for Rivendell Radio Automation — first AI integration for any professional RAS",
   "type": "module",
-  "main": "src/bridge.js",
-  "bin": {
-    "rivendell-ai-dj": "src/bridge.js"
-  },
+  "main": "src/cli.js",
   "scripts": {
-    "start": "node src/bridge.js",
-    "dev": "node --watch src/bridge.js",
+    "start": "node src/cli.js",
+    "dev": "node --watch src/cli.js",
+    "demo": "DEMO_MODE=true node src/cli.js",
     "test": "node scripts/test.js",
     "test-connection": "node scripts/test-connection.js"
   },
   "engines": { "node": ">=20" },
   "license": "MIT",
-  "dependencies": {}
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
 }

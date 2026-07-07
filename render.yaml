@@ -1,0 +1,23 @@
+# Render Blueprint for Rivendell AI DJ — 1-click deploy
+services:
+  - type: web
+    name: rivendell-ai-dj
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/state
+    autoDeploy: true
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: OPENAI_API_KEY
+        sync: false  # set manually
+      - key: OPENAI_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: OPENAI_MODEL
+        value: z-ai/glm-5.2
+      - key: OPENAI_MODEL_FALLBACK
+        value: nvidia/nemotron-3-ultra-550b-a55b:free
+      - key: TRANSITION_INTERVAL_SEC
+        value: "45"
