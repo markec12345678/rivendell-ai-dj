@@ -15,6 +15,8 @@ COPY . .
 
 # Demo mode by default (simulated Rivendell — no real Rivendell needed)
 ENV DEMO_MODE=true
+# PORT is set by Render/Railway/HF at runtime. Default 7701 for local.
+# Do NOT hardcode — let the platform inject PORT.
 ENV PORT=7701
 EXPOSE 7701
 
@@ -22,7 +24,8 @@ EXPOSE 7701
 RUN chown -R node:node /app
 USER node
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -fsS http://localhost:7701/api/state > /dev/null || exit 1
+# Healthcheck uses $PORT (resolved at runtime via shell form)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -fsS "http://localhost:${PORT:-7701}/api/state" > /dev/null || exit 1
 
 CMD ["node", "src/cli.js"]
